@@ -1,0 +1,44 @@
+/* Login/Signup Container Styles */
+.signup-container,
+.login-container {
+    background-color: #F2EFEA;
+    color: #0B6E4F;
+    padding: 20px;
+    border-radius: 10px;
+    max-width: 500px;
+    margin: 80px auto;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.signup-container h2,
+.login-container h2 {
+    text-align: center;
+}
+
+/* Button Styles */
+.button,
+input[type="submit"],
+button,
+.login-signup-buttons a,
+.cta-section a,
+.hero-section .btn-primary,
+.hero-section .btn-secondary,
+.feature-link {
+  display: inline-block;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 12px 24px;
+  background-color: #23A25C;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
+  min-width: 150px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
