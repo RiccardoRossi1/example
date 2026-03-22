@@ -1,0 +1,74 @@
+# imports
+
+from flask import Flask, request, jsonify, send_from_directory, session, redirect
+import sqlite3
+
+app = Flask(__name, static_folder = ".". static_url_path="")
+app.secret_key = "secretkey"
+app.config["SESSION_PERMANENT"] = False
+
+@app.route("/")
+def home():
+    return send_from_directory("html","index.html")
+
+@app.route("/login.html")
+def login_page():
+    if "user" in session:
+        return redirect("/")
+    return send_from_directory("html","login.html")
+
+
+@app.route("/check-login")
+def check_login():
+    return jsonify({"logged_in": "user" in session})
+
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.json
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT * FROM User WHERE Username = ? AND password = ?",
+        (data["username"], data["password"])
+    )
+    user = cursor.fetchone()
+    conn.close()
+
+    if user:
+        session["user"] = data["username"]
+        return jsonify({"success": True})
+    else:
+        return jsonify({"success": False, "message": "Invalid credentials"}), 401
+
+@app.route("/logout", methods=["GET", "POST"])
+def logout():
+    session.pop("user", None)
+    return redirect ("/")
+
+@app.route("/signup.html")
+def signup_page():
+    if "user" in session:
+        return redirect("/")
+    return send_from_directory("html","signup.html")
+
+@app.route("/signup", methods=["POST"])
+def signup():
+    data = request.json
+    if data["password"] != data["confirmPassword"]:
+        return jsonify({"success": False, "message": "Passwords do not match"}), 400
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO User (Username, Password, Email) VALUES (?, ?, ?)",
+            (data["username"], data["password"], data["email"])
+        )
+        conn.commit()
+        print("Received signup data:", data)
+    except sqlite3.IntegrityError:
+        conn.close()
+        return jsonify({"success": False, "message": "User already exists"}), 409
+
+    conn.close()
+    return jsonify({"success": True, "message": "User registered successfully"})
