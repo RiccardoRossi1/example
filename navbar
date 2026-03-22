@@ -1,0 +1,16 @@
+document.addEventListener("DOMContentLoaded", () => {
+    fetch("/check-login")
+    .then(res => res.json())
+    .then(data => {
+        const loginLink = document.querySelector(".login-link")
+        const loginButtons = document.querySelector(".login-signup-buttons");
+
+        if (data.logged_in) {
+            if (loginButtons) loginButtons.style.display = "none";
+            if (loginLink) {
+                loginLink.textContent = "Logout";
+                loginLink.href = "/logout";
+            }
+        }
+    })
+})
