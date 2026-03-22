@@ -1,0 +1,57 @@
+pip install bcrypt
+
+import sqlite3
+import bcrypt
+
+# -----------------------------
+# 1. Password hashing functions
+# -----------------------------
+def hash_password(plain_password: str) -> str:
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(plain_password.encode(), salt)
+    return hashed.decode()  # store as TEXT in SQLite
+
+def verify_password(plain_password: str, stored_hash: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode(), stored_hash.encode())
+
+# -----------------------------
+# 2. SQLite setup
+# -----------------------------
+conn = sqlite3.connect("users.db")
+cur = conn.cursor()
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    password_hash TEXT
+)
+""")
+conn.commit()
+
+# -----------------------------
+# 3. Create a user
+# -----------------------------
+username = "riccardo"
+password = "supersecret123"
+
+password_hash = hash_password(password)
+
+cur.execute(
+    "INSERT OR REPLACE INTO users (username, password_hash) VALUES (?, ?)",
+    (username, password_hash)
+)
+conn.commit()
+
+print(f"Stored hash for {username}: {password_hash}")
+
+# -----------------------------
+# 4. Login check
+# -----------------------------
+cur.execute("SELECT password_hash FROM users WHERE username = ?", (username,))
+row = cur.fetchone()
+
+if row and verify_password("supersecret123", row[0]):
+    print("Login successful")
+else:
+    print("Invalid credentials")
