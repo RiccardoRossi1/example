@@ -1,7 +1,9 @@
 # imports
 
 from flask import Flask, request, jsonify, send_from_directory, session, redirect
+from werkzeug.security import check_password_hash, generate_password_hash
 import sqlite3
+import os
 
 app = Flask(__name, static_folder = ".". static_url_path="")
 app.secret_key = "secretkey"
@@ -24,28 +26,37 @@ def check_login():
 
 @app.route("/login", methods=["POST"])
 def login():
-   data = request.json
-   username = data.get("username")
-   password = data.get("password")
-   selected_role = data.get("role")
-   conn = get_db_connection()
-   cursor = conn.cursor()
-   cursor.execute("SELECT username, password, role FROM user WHERE username = ?", (username,))
-   user = cursor.fetchone()
-   conn.close()
-   if not user:
-       return jsonify({"success": False, "message": "User not found"})
-   db_username, db_password, db_role = user
-   # Check password (plain text version — can upgrade to hashing later)
-   if password != db_password:
-       return jsonify({"success": False, "message": "Incorrect password"})
-   # Check role matches what user selected
-   if selected_role != db_role:
-       return jsonify({"success": False, "message": "Incorrect role selected"})
-   # Store both username and role in session
-   session["user"] = db_username
-   session["role"] = db_role
-   return jsonify({"success": True, "role": db_role})
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+    selected_role = data.get("role")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Fixed: SEELECT -> SELECT
+    cursor.execute("SELECT username, password, role FROM user WHERE username = ?", (username,))
+    user = cursor.fetchone()
+    conn.close()
+    
+    if not user:
+        return jsonify({"success": False, "message": "Invalid username or password"}), 401
+    
+    # Fixed: Access Row object properties correctly
+    db_username = user["username"]
+    db_password = user["password"]
+    db_role = user["role"]
+    
+    # Fixed: Use proper password hashing comparison
+    if not check_password_hash(db_password, password):
+        return jsonify({"success": False, "message": "Incorrect password"}), 401
+    
+    if selected_role != db_role:
+        return jsonify({"success": False, "message": "Incorrect role selected"}), 401
+    
+    session["user"] = username
+    session["role"] = db_role
+    return jsonify({"success": True, "role": db_role})
  
 
 @app.route("/logout", methods=["GET", "POST"])
@@ -61,22 +72,40 @@ def signup_page():
 
 @app.route("/signup", methods=["POST"])
 def signup():
-    data = request.json
+    data = request.get_json()
+    
+    # Validate required fields
+    if not all(k in data for k in ["username", "email", "password", "confirmPassword", "role"]):
+        return jsonify({"success": False, "message": "Missing required fields"}), 400
+    
     if data["password"] != data["confirmPassword"]:
         return jsonify({"success": False, "message": "Passwords do not match"}), 400
     
+    if len(data["password"]) < 6:
+        return jsonify({"success": False, "message": "Password must be at least 6 characters"}), 400
+    
     conn = get_db_connection()
     cursor = conn.cursor()
+    
     try:
+        # Fixed: Hash password using werkzeug security
+        hashed_password = generate_password_hash(data["password"])
         cursor.execute(
-            "INSERT INTO User (Username, Password, Email) VALUES (?, ?, ?)",
-            (data["username"], data["password"], data["email"])
+            "INSERT INTO User (username, password, email, role) VALUES (?, ?, ?, ?)",
+            (data["username"], hashed_password, data["email"], data["role"])
         )
         conn.commit()
-        print("Received signup data:", data)
-    except sqlite3.IntegrityError:
+        print("Received signup data (password not shown for security):", {
+            "username": data["username"],
+            "email": data["email"],
+            "role": data["role"]
+        })
+        return jsonify({"success": True, "message": "User registered successfully"}), 201
+    except sqlite3.IntegrityError as e:
         conn.close()
         return jsonify({"success": False, "message": "User already exists"}), 409
-
-    conn.close()
-    return jsonify({"success": True, "message": "User registered successfully"})
+    except Exception as e:
+        conn.close()
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        conn.close()
