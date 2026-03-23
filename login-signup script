@@ -57,9 +57,23 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = await res.json();
     
             if (res.ok && data.success) {
-                const next = new URLSearchParams(window.location.search).get("next");
                 alert("Login successful!");
-                window.location.href = next ? next : "/";
+
+                const next = new URLSearchParams(window.location.search).get("next");
+                if (next) {
+                    window.location.href = next;
+                    return;
+                }
+
+                //Role-based redirects
+                if (data.role === "producer") {
+                window.location.href = "/producer/dashboard.html";
+                } else if (data.role === "customer") {
+                window.location.href = "/customer/home.html";
+                } else {
+                    window.location.href = "/";
+                }
+
             } else {
                 alert(data.message || "Login failed");
             }
