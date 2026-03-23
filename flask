@@ -24,21 +24,29 @@ def check_login():
 
 @app.route("/login", methods=["POST"])
 def login():
-    data = request.json
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT * FROM User WHERE Username = ? AND password = ?",
-        (data["username"], data["password"])
-    )
-    user = cursor.fetchone()
-    conn.close()
-
-    if user:
-        session["user"] = data["username"]
-        return jsonify({"success": True})
-    else:
-        return jsonify({"success": False, "message": "Invalid credentials"}), 401
+   data = request.json
+   username = data.get("username")
+   password = data.get("password")
+   selected_role = data.get("role")
+   conn = get_db_connection()
+   cursor = conn.cursor()
+   cursor.execute("SELECT username, password, role FROM user WHERE username = ?", (username,))
+   user = cursor.fetchone()
+   conn.close()
+   if not user:
+       return jsonify({"success": False, "message": "User not found"})
+   db_username, db_password, db_role = user
+   # Check password (plain text version — can upgrade to hashing later)
+   if password != db_password:
+       return jsonify({"success": False, "message": "Incorrect password"})
+   # Check role matches what user selected
+   if selected_role != db_role:
+       return jsonify({"success": False, "message": "Incorrect role selected"})
+   # Store both username and role in session
+   session["user"] = db_username
+   session["role"] = db_role
+   return jsonify({"success": True, "role": db_role})
+ 
 
 @app.route("/logout", methods=["GET", "POST"])
 def logout():
